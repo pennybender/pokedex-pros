@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pokédex Pros</title>
+  <meta name="description" content="A Pokémon trivia game: pick your difficulty and categories, build a team of helpers, and chase the high score.">
+  <meta name="theme-color" content="#121a3a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pokédex Pros">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Version 2: the styles and game logic now live in this file. style.css and app.js are no longer used. -->
+  <script>try { var t = JSON.parse(localStorage.getItem("pokedexPros.v1")).settings.theme; if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
+  <style>
+:root {
+  --bg: #0d1330; --bg2: #121a3a; --glow: #24306e;
+  --card: #1a2450; --card2: #222e63; --line: #2f3c78;
+  --text: #f3f5ff; --muted: #9aa5d6; --soft: #d5daf5;
+  --well: #0d1330; --track: #2a3568; --veil: rgba(6,9,26,.82);
+  --hi: #ffcb3d; --hi-glow: rgba(255,203,61,.18);
+  --good-text: #3ddc87; --bad-text: #ff8b98;
+  --okbg: #14553a; --nobg: #5c1c2a; --caton: #173a3f; --caton-line: #6fd29a;
+  --title-shadow: 0 4px 0 rgba(0,0,0,.35); --logo-shadow: 0 14px 34px rgba(0,0,0,.5);
+  --red2: #c81e2b; --gold: #ffcb3d; --good: #2fbf71; --bad: #ef4a5d; --r: 16px;
+  --font: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+}
+:root[data-theme="light"] {
+  --bg: #e9edfa; --bg2: #f4f6fd; --glow: #ffffff;
+  --card: #ffffff; --card2: #eef1ff; --line: #c5cdee;
+  --text: #18203f; --muted: #58628f; --soft: #2b345c;
+  --well: #edf0fb; --track: #d3d9f2; --veil: rgba(233,237,250,.9);
+  --hi: #a85f00; --hi-glow: rgba(168,95,0,.14);
+  --good-text: #0f7a45; --bad-text: #c0182b;
+  --okbg: #c8f1da; --nobg: #ffd3d9; --caton: #dff6e9; --caton-line: #2fbf71;
+  --title-shadow: 0 3px 0 rgba(24,32,63,.12); --logo-shadow: 0 12px 26px rgba(24,32,63,.25);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overscroll-behavior: none; }
+body { -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; }
+button, input, select { font: inherit; color: inherit; }
+h1, h2, h3, p { margin: 0; }
+.hidden { display: none !important; }
+
+#app { position: relative; height: 100dvh; max-width: 540px; margin: 0 auto; overflow: hidden;
+  background: radial-gradient(120% 60% at 50% -10%, var(--glow) 0%, var(--bg2) 45%, var(--bg) 100%); }
+.screen { position: absolute; inset: 0; display: none; flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+.screen.active { display: flex; animation: fade .22s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.scroll { flex: 1; overflow-y: auto; padding: 4px 16px 20px; -webkit-overflow-scrolling: touch; }
+.foot { padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 60%, transparent); }
+.foot.two { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+
+/* buttons */
+.btn { display: block; width: 100%; border: 2px solid var(--line); background: var(--card); color: var(--text);
+  padding: 14px 16px; border-radius: 14px; font-weight: 800; font-size: 1rem; cursor: pointer; transition: transform .08s, background .15s; }
+.btn:active { transform: scale(.97); }
+.btn.primary { color: #fff; background: linear-gradient(180deg, #ff5f57, var(--red2)); border-color: #ff8a80; box-shadow: 0 5px 0 #7d1220; }
+.btn.primary:active { box-shadow: 0 2px 0 #7d1220; transform: translateY(3px); }
+.btn.primary:disabled { filter: grayscale(.8); opacity: .5; }
+.btn.big { font-size: 1.15rem; padding: 16px; letter-spacing: .02em; }
+.btn.small { width: auto; padding: 8px 16px; font-size: .9rem; box-shadow: 0 3px 0 #7d1220; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.link { background: none; border: 0; color: var(--hi); font-weight: 700; font-size: .85rem; padding: 4px 6px; cursor: pointer; }
+.back { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-size: 1.3rem; font-weight: 800; line-height: 1; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--hi); outline-offset: 2px; }
+
+/* home */
+#s-home { justify-content: space-between; text-align: center; padding-bottom: env(safe-area-inset-bottom); }
+.home-top { padding: 6vh 20px 0; }
+.logo { border-radius: 30px; box-shadow: var(--logo-shadow); animation: bob 3.5s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-7px) rotate(-2deg); } }
+.title { font-size: clamp(2.3rem, 11vw, 3.2rem); font-weight: 900; letter-spacing: -.02em; margin-top: 18px; text-shadow: var(--title-shadow); }
+.title span { color: var(--hi); }
+.tagline { color: var(--muted); margin-top: 6px; font-weight: 600; }
+.menu { display: grid; gap: 12px; padding: 0 28px; }
+.prefs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 28px 0; }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 2px solid var(--line); background: var(--card); border-radius: 14px; padding: 9px 10px 9px 12px; font-weight: 800; font-size: .85rem; cursor: pointer; text-align: left; }
+.switch i { flex: none; width: 42px; height: 24px; border-radius: 12px; background: var(--track); position: relative; transition: background .15s; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .15s; }
+.switch[aria-checked="true"] i { background: var(--good); }
+.switch[aria-checked="true"] i::after { transform: translateX(18px); }
+.fine { color: var(--muted); opacity: .8; font-size: .7rem; padding: 12px 24px 14px; }
+
+/* headers */
+.bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.bar h2 { font-size: 1.25rem; font-weight: 900; flex: 1; }
+.sec { display: flex; align-items: center; justify-content: space-between; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 18px 2px 10px; min-height: 28px; }
+.hint { color: var(--muted); font-size: .9rem; line-height: 1.45; margin: 4px 2px 14px; }
+
+/* setup */
+.diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.diff { border: 2px solid var(--line); background: var(--card); border-radius: var(--r); padding: 12px 6px; text-align: center; cursor: pointer; }
+.diff b { display: block; font-size: 1.05rem; }
+.diff small { display: block; color: var(--muted); font-size: .72rem; margin-top: 4px; line-height: 1.35; }
+.diff.on { border-color: var(--hi); background: var(--card2); box-shadow: 0 0 0 3px var(--hi-glow); }
+.diff.on b { color: var(--hi); }
+.cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cat { display: flex; gap: 10px; align-items: center; text-align: left; border: 2px solid var(--line); background: var(--card); border-radius: var(--r); padding: 10px; cursor: pointer; opacity: .6; }
+.cat .ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--well); font-weight: 900; color: var(--muted); }
+.cat b { display: block; font-size: .92rem; line-height: 1.15; }
+.cat small { display: block; color: var(--muted); font-size: .7rem; margin-top: 2px; line-height: 1.25; }
+.cat.on { opacity: 1; border-color: var(--caton-line); background: var(--caton); }
+.cat.on .ic { background: var(--good); color: #062414; }
+.teampick { display: grid; gap: 8px; }
+.tp { display: flex; align-items: center; gap: 10px; border: 2px solid var(--line); background: var(--card); border-radius: var(--r); padding: 10px 12px; cursor: pointer; text-align: left; min-height: 58px; }
+.tp.on { border-color: var(--hi); background: var(--card2); }
+.tp b { flex: none; min-width: 78px; }
+.tp .mini { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; justify-content: flex-end; }
+.tp em { color: var(--muted); font-style: normal; font-size: .82rem; flex: 1; text-align: right; }
+
+/* Pokémon picture tokens: the picture loads over a type-coloured disc, which stays as the fallback when offline */
+.tok { --a: #888; --b: #888; position: relative; overflow: hidden; flex: none; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 900; font-size: .95rem; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.65);
+  background: linear-gradient(rgba(255,255,255,.3), rgba(255,255,255,.3)), linear-gradient(135deg, var(--a) 0 50%, var(--b) 50% 100%);
+  border: 3px solid rgba(255,255,255,.9); box-shadow: 0 3px 8px rgba(0,0,0,.3); }
+.tok img { position: absolute; left: -14%; top: -14%; width: 128%; height: 128%; object-fit: contain; opacity: 0; }
+.tok.has { color: transparent; text-shadow: none; }
+.tok.has img { opacity: 1; }
+.tok.sm { width: 32px; height: 32px; font-size: .62rem; border-width: 2px; }
+.tok.lg { width: 62px; height: 62px; }
+
+/* type pictures: the official icon replaces a coloured text pill once it has loaded */
+.ty { --c: #888; display: inline-block; vertical-align: middle; background: var(--c); color: #fff; font-size: .74rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 20px; text-shadow: 0 1px 1px rgba(0,0,0,.5); line-height: 1.3; white-space: nowrap; }
+.ty img { display: none; height: 26px; width: auto; }
+.ty.has { background: none; padding: 0; font-size: 0; }
+.ty.has img { display: block; }
+.ty + .ty { margin-left: 6px; }
+
+/* game */
+.hud { display: flex; align-items: center; gap: 8px; padding: 10px 14px 6px; }
+.hud-item { text-align: center; min-width: 42px; }
+.hud-item span { display: block; font-size: .6rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.hud-item b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.hearts { margin-left: auto; display: flex; gap: 1px; font-size: 1.1rem; color: #ef4444; }
+.hearts .off { color: var(--track); }
+.dots { display: flex; gap: 5px; padding: 4px 16px; }
+.dots i { flex: 1; height: 6px; border-radius: 3px; background: var(--track); }
+.dots i.ok { background: var(--good); } .dots i.no { background: var(--bad); } .dots i.now { background: var(--gold); }
+.timer { height: 8px; margin: 6px 16px 4px; background: var(--track); border-radius: 4px; overflow: hidden; }
+#timerBar { height: 100%; width: 100%; background: var(--gold); border-radius: 4px; transform-origin: left; }
+#timerBar.low { background: var(--bad); }
+.game-body { padding-top: 8px; }
+.qcard { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 16px 16px 20px; min-height: 110px; }
+.qcat { display: inline-block; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #2a1f00; background: var(--gold); border-radius: 20px; padding: 3px 10px; margin-bottom: 10px; }
+.qcat .pts { opacity: .7; margin-left: 6px; }
+#qText { font-size: clamp(1.1rem, 5vw, 1.4rem); line-height: 1.3; font-weight: 800; text-wrap: balance; }
+.opts { display: grid; gap: 9px; margin-top: 12px; }
+.opt { position: relative; text-align: left; border: 2px solid var(--line); background: var(--card2); border-radius: 14px; padding: 13px 14px; font-weight: 700; font-size: 1rem; line-height: 1.3; cursor: pointer; transition: transform .08s; min-height: 52px; }
+.opt:active { transform: scale(.98); }
+.opt.tip { border-color: var(--hi); }
+.opt .who { display: block; font-size: .7rem; color: var(--hi); font-weight: 800; margin-top: 4px; }
+.opt.right { background: var(--okbg); border-color: var(--good); }
+.opt.wrong { background: var(--nobg); border-color: var(--bad); animation: shake .3s; }
+.opt.dim { opacity: .45; }
+.opt:disabled { cursor: default; color: var(--text); }
+@keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.bubble { display: flex; gap: 10px; align-items: center; margin-top: 12px; background: #fff; color: #18203f; border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px; font-size: .92rem; line-height: 1.35; animation: fade .2s; }
+.bubble .conf { display: block; font-size: .72rem; font-weight: 800; color: #5b6390; letter-spacing: .03em; }
+.bubble .tys { display: block; margin-top: 6px; }
+.bubble .ty img { height: 20px; }
+.fact { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--gold); background: var(--hi-glow); border-radius: 0 12px 12px 0; font-size: .9rem; line-height: 1.4; }
+.fact b.g { color: var(--good-text); } .fact b.r { color: var(--bad-text); }
+.game-foot { padding-top: 6px; }
+.team-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); text-align: center; margin-bottom: 6px; }
+.teambar { display: flex; justify-content: center; gap: 6px; }
+.teambar button { background: none; border: 0; padding: 0; cursor: pointer; display: grid; justify-items: center; width: 54px; }
+.teambar small { display: block; width: 100%; font-size: .58rem; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.teambar button:disabled { opacity: .28; filter: grayscale(1); cursor: default; }
+
+/* overlay */
+.overlay { position: absolute; inset: 0; background: var(--veil); display: grid; place-items: center; padding: 24px; z-index: 5; animation: fade .2s; }
+.sheet { width: 100%; background: var(--card); border: 2px solid var(--hi); border-radius: 24px; padding: 24px 20px; text-align: center; }
+.sheet p { color: var(--muted); margin: 8px 0 18px; line-height: 1.5; }
+.eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: .8rem; font-weight: 800; color: var(--hi) !important; margin: 0 !important; }
+.bigscore { font-size: clamp(3.2rem, 18vw, 4.6rem); font-weight: 900; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.bigscore.small { font-size: 2.8rem; color: var(--good-text); }
+
+/* game over */
+.over { text-align: center; padding-top: 9vh; }
+.over-sub { color: var(--muted); margin-top: 4px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 22px 0; }
+.stats div { background: var(--card); border: 2px solid var(--line); border-radius: var(--r); padding: 12px 4px; }
+.stats b { display: block; font-size: 1.3rem; } .stats span { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.name-row { text-align: left; background: var(--card); border: 2px solid var(--hi); border-radius: var(--r); padding: 12px; }
+.name-row label { display: block; font-size: .8rem; font-weight: 700; color: var(--hi); margin-bottom: 8px; }
+.row { display: flex; gap: 8px; }
+.row .btn { width: auto; flex: none; }
+input { -webkit-user-select: text; user-select: text; background: var(--well); border: 2px solid var(--line); border-radius: 12px; padding: 11px 12px; font-size: 1rem; font-weight: 700; min-width: 0; flex: 1; }
+.saved { color: var(--good-text); font-weight: 800; margin-top: 14px; }
+
+/* teams */
+.tcard { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 14px; margin-bottom: 12px; }
+.tcard-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.tcard-head b { flex: 1; font-size: 1.1rem; }
+.tcard .members, .slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; justify-items: center; }
+.member { display: grid; justify-items: center; width: 100%; min-width: 0; }
+.member small { display: block; width: 100%; text-align: center; font-size: .56rem; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { width: 50px; height: 50px; max-width: 100%; border-radius: 50%; border: 2px dashed var(--line); }
+.edit-top { padding: 0 16px 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.slots button { background: none; border: 0; padding: 0; cursor: pointer; }
+.typerow { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; }
+.typerow::-webkit-scrollbar { display: none; }
+.typerow button { flex: none; background: none; border: 2px solid transparent; border-radius: 20px; padding: 2px; cursor: pointer; opacity: .8; }
+.typerow button.on { border-color: var(--hi); opacity: 1; }
+.typerow .all { padding: 3px 12px; font-weight: 800; font-size: .78rem; border-color: var(--line); background: var(--card); }
+.mongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px 4px; }
+.mon { background: none; border: 2px solid transparent; border-radius: 14px; padding: 6px 2px; cursor: pointer; display: grid; justify-items: center; min-width: 0; }
+.mon small { font-size: .64rem; margin-top: 4px; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mon.on { border-color: var(--hi); background: var(--card2); }
+
+/* scores */
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 16px 10px; }
+.tabs button { border: 2px solid var(--line); background: var(--card); border-radius: 12px; padding: 9px; font-weight: 800; cursor: pointer; }
+.tabs button.on { border-color: var(--hi); color: var(--hi); background: var(--card2); }
+.scorelist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.scorelist li { display: flex; align-items: center; gap: 12px; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px 14px; }
+.scorelist .rank { width: 28px; height: 28px; border-radius: 50%; background: var(--well); display: grid; place-items: center; font-weight: 900; font-size: .85rem; flex: none; }
+.scorelist li:first-child { border-color: var(--hi); } .scorelist li:first-child .rank { background: var(--gold); color: #3a2a00; }
+.scorelist .who { flex: 1; min-width: 0; } .scorelist .who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scorelist .who small { color: var(--muted); font-size: .72rem; }
+.scorelist .pts { font-weight: 900; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.scorelist .nothing { justify-content: center; color: var(--muted); border-style: dashed; padding: 28px; }
+
+/* help */
+.help h3 { color: var(--hi); font-size: .95rem; margin: 18px 0 6px; }
+.help p { color: var(--soft); line-height: 1.55; font-size: .95rem; margin-bottom: 8px; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="s-home" class="screen active">
+    <div class="home-top">
+      <img class="logo" src="icon-192.png" alt="" width="120" height="120">
+      <h1 class="title">Pokédex <span>Pros</span></h1>
+      <p class="tagline">How well do you really know the Pokémon world?</p>
+    </div>
+    <div>
+      <div class="menu">
+        <button class="btn primary big" data-go="setup">Play</button>
+        <button class="btn" data-go="teams">My Trivia Teams</button>
+        <button class="btn" data-go="scores">High Scores</button>
+        <button class="btn ghost" data-go="help">How to play</button>
+      </div>
+      <div class="prefs">
+        <button id="themeSwitch" class="switch" role="switch" aria-checked="false"><span>Light theme</span><i></i></button>
+        <button id="voiceSwitch" class="switch" role="switch" aria-checked="true"><span>Read aloud</span><i></i></button>
+      </div>
+    </div>
+    <p class="fine">Unofficial fan-made quiz. Pokémon and all related names and pictures belong to their owners.</p>
+  </section>
+
+  <!-- SETUP -->
+  <section id="s-setup" class="screen">
+    <header class="bar"><button class="back" data-go="home" aria-label="Back">‹</button><h2>New game</h2></header>
+    <div class="scroll">
+      <h3 class="sec">Difficulty</h3>
+      <div id="diffList" class="diffs"></div>
+      <h3 class="sec">Categories
+        <span class="sec-actions"><button id="catAll" class="link">Select all</button><button id="catNone" class="link">Clear</button></span>
+      </h3>
+      <div id="catList" class="cats"></div>
+      <h3 class="sec">Trivia team</h3>
+      <div id="teamPick" class="teampick"></div>
+    </div>
+    <footer class="foot"><button id="startBtn" class="btn primary big">Start</button></footer>
+  </section>
+
+  <!-- GAME -->
+  <section id="s-game" class="screen">
+    <header class="hud">
+      <button id="quitBtn" class="back" aria-label="Quit game">✕</button>
+      <button id="voiceBtn" class="back" aria-label="Read aloud on or off">🔊</button>
+      <div class="hud-item"><span>Level</span><b id="hudLevel">1</b></div>
+      <div class="hud-item"><span>Score</span><b id="hudScore">0</b></div>
+      <div class="hud-item"><span>Streak</span><b id="hudStreak">0</b></div>
+      <div id="hudHearts" class="hearts" aria-label="Lives"></div>
+    </header>
+    <div id="qDots" class="dots"></div>
+    <div class="timer"><div id="timerBar"></div></div>
+    <div class="scroll game-body">
+      <div class="qcard">
+        <div id="qCat" class="qcat"></div>
+        <h2 id="qText"></h2>
+      </div>
+      <div id="opts" class="opts"></div>
+      <div id="bubble" class="bubble hidden" aria-live="polite"></div>
+      <div id="fact" class="fact hidden"></div>
+    </div>
+    <footer class="foot game-foot">
+      <div id="teamWrap">
+        <div class="team-label" id="teamLabel">Ask a teammate — once each per level</div>
+        <div id="teamBar" class="teambar"></div>
+      </div>
+      <button id="nextBtn" class="btn primary big hidden">Next</button>
+    </footer>
+  </section>
+
+  <!-- GAME OVER -->
+  <section id="s-over" class="screen">
+    <div class="scroll over">
+      <p class="eyebrow" id="overEyebrow">Game over</p>
+      <div class="bigscore" id="overScore">0</div>
+      <p class="over-sub" id="overSub"></p>
+      <div class="stats" id="overStats"></div>
+      <div id="nameRow" class="name-row">
+        <label for="nameInput">Name for the high score table</label>
+        <div class="row"><input id="nameInput" maxlength="12" autocomplete="off" placeholder="Trainer"><button id="saveScore" class="btn primary">Save</button></div>
+      </div>
+      <p id="savedMsg" class="saved hidden"></p>
+    </div>
+    <footer class="foot two"><button class="btn" data-go="home">Home</button><button id="againBtn" class="btn primary">Play again</button></footer>
+  </section>
+
+  <!-- TEAMS -->
+  <section id="s-teams" class="screen">
+    <header class="bar"><button class="back" data-go="home" aria-label="Back">‹</button><h2>My Trivia Teams</h2></header>
+    <div class="scroll">
+      <p class="hint">Save up to two teams of six. In a game, each teammate can whisper you one answer per level — they know their own type and family best.</p>
+      <div id="teamCards"></div>
+    </div>
+  </section>
+
+  <!-- TEAM EDITOR -->
+  <section id="s-edit" class="screen">
+    <header class="bar"><button class="back" id="editBack" aria-label="Back">‹</button><h2>Edit team</h2><button id="editSave" class="btn primary small">Save</button></header>
+    <div class="edit-top">
+      <input id="teamName" maxlength="16" autocomplete="off" placeholder="Team name" aria-label="Team name">
+      <div id="slots" class="slots"></div>
+      <input id="search" type="search" autocomplete="off" placeholder="Search Pokémon" aria-label="Search Pokémon">
+      <div id="typeRow" class="typerow" aria-label="Filter by type"></div>
+    </div>
+    <div class="scroll"><div id="monGrid" class="mongrid"></div></div>
+  </section>
+
+  <!-- SCORES -->
+  <section id="s-scores" class="screen">
+    <header class="bar"><button class="back" data-go="home" aria-label="Back">‹</button><h2>High Scores</h2></header>
+    <div id="scoreTabs" class="tabs"></div>
+    <div class="scroll"><ol id="scoreList" class="scorelist"></ol></div>
+  </section>
+
+  <!-- HELP -->
+  <section id="s-help" class="screen">
+    <header class="bar"><button class="back" data-go="home" aria-label="Back">‹</button><h2>How to play</h2></header>
+    <div class="scroll help" id="helpText">
+      <h3>The basics</h3>
+      <p>Pick a difficulty and the categories you want, then answer before the timer runs out. Every level has seven questions, and the questions get tougher as you climb.</p>
+      <h3>Lives</h3>
+      <p>You start with five lives on every difficulty. A wrong answer or a timeout costs a life. Clear a level and you win one back. The game ends when you run out.</p>
+      <h3>Points</h3>
+      <p>Harder questions are worth more. Fast answers earn a speed bonus and a run of correct answers builds a streak bonus. Clearing a level pays a bonus too — bigger if you got all seven right.</p>
+      <h3>Your trivia team</h3>
+      <p>Build a team of up to six Pokémon. Tap a teammate during a question and they'll tell you what they think the answer is. Each one can help once per level.</p>
+      <p>They're honest about how sure they are. A teammate is certain about questions on its own evolutionary family, confident about its own types, and only guessing on everything else — so a balanced team covers more ground.</p>
+      <h3>Read aloud</h3>
+      <p>With Read aloud switched on, questions, answers and hints are spoken, and the timer waits until the question has been read. Switch it off on the home screen or with the speaker button during a game.</p>
+      <h3>Install it</h3>
+      <p>On iPhone: Share, then Add to Home Screen. On Android: menu, then Install app. Pokémon and type pictures need an internet connection; without one you'll see coloured discs instead.</p>
+    </div>
+  </section>
+
+  <!-- LEVEL CLEAR OVERLAY -->
+  <div id="overlay" class="overlay hidden">
+    <div class="sheet">
+      <p class="eyebrow" id="lvTitle">Level cleared</p>
+      <div class="bigscore small" id="lvBonus">+0</div>
+      <p id="lvText"></p>
+      <button id="lvNext" class="btn primary big">Next level</button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="questions.js"></script>
+<script>
+/* Pokédex Pros — game logic and screens. Everything is saved on the device (localStorage). */
+(function () {
+  "use strict";
+  const D = window.PP_DATA, PP = window.PP;
+  const $ = function (s) { return document.querySelector(s); };
+  const $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  const esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  const fmt = function (n) { return Math.round(n).toLocaleString("en-AU"); };
+
+  /* ---------- settings you might want to tweak ---------- */
+  const LIVES = 5; // same on every difficulty
+  const DIFFS = {
+    easy:   { label: "Easy",   time: 45, mult: 1,   blurb: "45 seconds · mostly well-known Pokémon", mix: [[0.75, 0.25, 0], [0.5, 0.42, 0.08]] },
+    medium: { label: "Medium", time: 30, mult: 1.5, blurb: "30 seconds · points ×1.5",               mix: [[0.35, 0.5, 0.15], [0.15, 0.5, 0.35]] },
+    hard:   { label: "Hard",   time: 12, mult: 2,   blurb: "12 seconds · points ×2",                 mix: [[0.1, 0.45, 0.45], [0, 0.3, 0.7]] }
+  };
+  // Pictures are loaded from the PokéAPI sprite collection when online.
+  const SPRITES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/";
+  const TYPE_ID = { Normal: 1, Fighting: 2, Flying: 3, Poison: 4, Ground: 5, Rock: 6, Bug: 7, Ghost: 8, Steel: 9, Fire: 10, Water: 11, Grass: 12, Electric: 13, Psychic: 14, Ice: 15, Dragon: 16, Dark: 17, Fairy: 18 };
+
+  const PER_LEVEL = 7, TEAM_MAX = 6, KEY = "pokedexPros.v1";
+  const CAT_BY_ID = {};
+  PP.CATS.forEach(function (c) { CAT_BY_ID[c.id] = c; });
+
+  /* ---------- saved data ---------- */
+  function fresh() {
+    return {
+      teams: [{ name: "Team 1", members: [] }, { name: "Team 2", members: [] }],
+      scores: { easy: [], medium: [], hard: [] },
+      settings: { diff: "easy", cats: PP.CATS.map(function (c) { return c.id; }), team: -1, name: "", theme: "dark", voice: true }
+    };
+  }
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if (s && s.teams && s.scores && s.settings) {
+        const f = fresh();
+        s.teams = [0, 1].map(function (i) {
+          const t = s.teams[i] || f.teams[i];
+          return { name: t.name || f.teams[i].name, members: (t.members || []).filter(function (n) { return PP.byName[n]; }).slice(0, TEAM_MAX) };
+        });
+        ["easy", "medium", "hard"].forEach(function (d) { if (!Array.isArray(s.scores[d])) s.scores[d] = []; });
+        s.settings.cats = (s.settings.cats || []).filter(function (c) { return CAT_BY_ID[c]; });
+        if (!DIFFS[s.settings.diff]) s.settings.diff = "easy";
+        if (s.settings.theme !== "light") s.settings.theme = "dark";
+        if (typeof s.settings.voice !== "boolean") s.settings.voice = true;
+        return s;
+      }
+    } catch (e) { /* fall through to a fresh save */ }
+    return fresh();
+  }
+  let store = load();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* private mode: play on without saving */ } }
+
+  /* ---------- theme ---------- */
+  function applyTheme() {
+    const light = store.settings.theme === "light";
+    document.documentElement.setAttribute("data-theme", light ? "light" : "dark");
+    document.querySelector('meta[name="theme-color"]').setAttribute("content", light ? "#f4f6fd" : "#121a3a");
+    $("#themeSwitch").setAttribute("aria-checked", light);
+  }
+  $("#themeSwitch").addEventListener("click", function () {
+    store.settings.theme = store.settings.theme === "light" ? "dark" : "light";
+    save(); applyTheme();
+    say(store.settings.theme === "light" ? "Light theme" : "Dark theme");
+  });
+
+  /* ---------- reading aloud ---------- */
+  const synth = window.speechSynthesis || null;
+  let voice = null;
+  function pickVoice() {
+    if (!synth) return;
+    const v = synth.getVoices().filter(function (x) { return /^en/i.test(x.lang); });
+    voice = v.filter(function (x) { return /en[-_]AU/i.test(x.lang); })[0] || v.filter(function (x) { return x.default; })[0] || v[0] || null;
+  }
+  if (synth) { pickVoice(); if ("onvoiceschanged" in synth) synth.onvoiceschanged = pickVoice; }
+  function speakable(t) {
+    return String(t).replace(/<[^>]*>/g, " ").replace(/_{2,}/g, " blank ").replace(/#0*(\d+)/g, "number $1").replace(/(\d)×/g, "$1 times").replace(/×(\d)/g, "times $1")
+      .replace(/\s\/\s/g, " and ").replace(/[“”]/g, "").replace(/[·—●▲]/g, ", ").replace(/♀/g, " female").replace(/♂/g, " male").replace(/\s+/g, " ").trim();
+  }
+  // Speaks the text (replacing anything already being spoken) and calls done() once, when finished or if speech isn't available.
+  function say(text, done) {
+    let fired = false;
+    const fin = function () { if (!fired) { fired = true; if (done) done(); } };
+    if (!synth || !store.settings.voice) { fin(); return; }
+    text = speakable(text);
+    if (!text) { fin(); return; }
+    try {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = "en-AU";
+      u.rate = 0.95;
+      u.onend = fin; u.onerror = fin;
+      synth.speak(u);
+      setTimeout(fin, 2500 + text.length * 95); // safety net for browsers that never report the end
+    } catch (e) { fin(); }
+  }
+  function hush() { if (synth) try { synth.cancel(); } catch (e) { /* nothing to stop */ } }
+  function applyVoice() {
+    const on = store.settings.voice && !!synth;
+    $("#voiceSwitch").setAttribute("aria-checked", on);
+    $("#voiceBtn").textContent = on ? "🔊" : "🔇";
+    if (!synth) { $("#voiceSwitch").disabled = true; $("#voiceSwitch").style.opacity = .5; $("#voiceBtn").classList.add("hidden"); }
+  }
+  function toggleVoice() {
+    store.settings.voice = !store.settings.voice;
+    save(); applyVoice();
+    if (store.settings.voice) say("Read aloud is on"); else hush();
+  }
+  $("#voiceSwitch").addEventListener("click", toggleVoice);
+  $("#voiceBtn").addEventListener("click", toggleVoice);
+
+  /* ---------- question pool ---------- */
+  const pool = PP.buildPool();
+  const index = {};
+  pool.forEach(function (q) {
+    const c = index[q.cat] = index[q.cat] || {};
+    const d = c[q.d] = c[q.d] || {};
+    (d[q.kind] = d[q.kind] || []).push(q);
+  });
+
+  /* ---------- pictures ---------- */
+  // Pokémon picture over a type-coloured disc with initials; the disc stays if the picture can't load.
+  function token(name, size) {
+    const m = PP.byName[name];
+    const a = D.TYPE_COLORS[m.types[0]], b = D.TYPE_COLORS[m.types[1] || m.types[0]];
+    return '<span class="tok' + (size ? " " + size : "") + '" style="--a:' + a + ";--b:" + b + '" aria-hidden="true">' + esc(name.slice(0, 2)) +
+      '<img src="' + SPRITES + "pokemon/" + m.n + '.png" alt="" loading="lazy" decoding="async" onload="this.parentNode.classList.add(\'has\')" onerror="this.remove()"></span>';
+  }
+  // Type picture; shows a coloured pill with the type's name until (or unless) the picture loads.
+  function typePic(t) {
+    return '<span class="ty" style="--c:' + D.TYPE_COLORS[t] + '">' + esc(t) +
+      '<img src="' + SPRITES + "types/generation-viii/sword-shield/" + TYPE_ID[t] + '.png" alt="' + esc(t) + '" decoding="async" onload="this.parentNode.classList.add(\'has\')" onerror="this.remove()"></span>';
+  }
+  // Answers that are type names ("Fire" or "Fire / Flying") are shown as type pictures.
+  function optionHtml(o) {
+    const parts = o.split(" / ");
+    if (parts.every(function (p) { return TYPE_ID[p]; })) return parts.map(typePic).join("");
+    return esc(o);
+  }
+
+  /* ---------- screens ---------- */
+  function show(id) {
+    $$(".screen").forEach(function (s) { s.classList.toggle("active", s.id === "s-" + id); });
+    if (id === "setup") renderSetup();
+    if (id === "teams") renderTeams();
+    if (id === "scores") renderScores(store.settings.diff);
+    const intro = {
+      home: "Pokédex Pros. How well do you really know the Pokémon world? Play. My Trivia Teams. High Scores. How to play.",
+      setup: "New game. Choose a difficulty, pick your categories and a trivia team, then press Start.",
+      teams: "My Trivia Teams. " + $("#s-teams .hint").textContent,
+      edit: "Edit team. Tap up to six Pokémon to add them to your team, then press Save.",
+      help: "How to play. " + $$("#helpText h3, #helpText p").map(function (e) { return e.textContent; }).join(". ")
+    }[id];
+    if (intro) say(intro);
+  }
+  document.addEventListener("click", function (e) {
+    const b = e.target.closest("[data-go]");
+    if (b) show(b.getAttribute("data-go"));
+  });
+
+  /* ---------- setup screen ---------- */
+  function renderSetup() {
+    const st = store.settings;
+    $("#diffList").innerHTML = Object.keys(DIFFS).map(function (k) {
+      const d = DIFFS[k];
+      return '<button class="diff' + (st.diff === k ? " on" : "") + '" data-diff="' + k + '" aria-pressed="' + (st.diff === k) + '"><b>' + d.label + "</b><small>" + d.blurb.split(" · ").join("<br>") + "</small></button>";
+    }).join("");
+    $("#catList").innerHTML = PP.CATS.map(function (c) {
+      const on = st.cats.indexOf(c.id) >= 0;
+      return '<button class="cat' + (on ? " on" : "") + '" data-cat="' + c.id + '" aria-pressed="' + on + '"><span class="ic">' + (on ? "✓" : c.icon) + "</span><span><b>" + c.name + "</b><small>" + c.blurb + "</small></span></button>";
+    }).join("");
+    if (st.team >= 0 && !store.teams[st.team].members.length) st.team = -1;
+    let html = '<button class="tp' + (st.team === -1 ? " on" : "") + '" data-team="-1"><b>No team</b><em>Go it alone</em></button>';
+    store.teams.forEach(function (t, i) {
+      const has = t.members.length > 0;
+      html += '<button class="tp' + (st.team === i ? " on" : "") + '" data-team="' + i + '"><b>' + esc(t.name) + "</b>" +
+        (has ? '<span class="mini">' + t.members.map(function (n) { return token(n, "sm"); }).join("") + "</span>" : "<em>Empty — tap to build it</em>") + "</button>";
+    });
+    $("#teamPick").innerHTML = html;
+    $("#startBtn").disabled = st.cats.length === 0;
+    $("#startBtn").textContent = st.cats.length ? "Start" : "Pick at least one category";
+  }
+  $("#s-setup").addEventListener("click", function (e) {
+    const st = store.settings;
+    let b, spoken = "";
+    if ((b = e.target.closest("[data-diff]"))) {
+      st.diff = b.getAttribute("data-diff");
+      spoken = DIFFS[st.diff].label + ". " + DIFFS[st.diff].blurb + ". " + LIVES + " lives.";
+    } else if ((b = e.target.closest("[data-cat]"))) {
+      const id = b.getAttribute("data-cat"), i = st.cats.indexOf(id);
+      if (i >= 0) st.cats.splice(i, 1); else st.cats.push(id);
+      spoken = CAT_BY_ID[id].name + (i >= 0 ? ", off" : ". " + CAT_BY_ID[id].blurb);
+    } else if ((b = e.target.closest("[data-team]"))) {
+      const t = +b.getAttribute("data-team");
+      if (t >= 0 && !store.teams[t].members.length) { openEditor(t, "setup"); return; }
+      st.team = t;
+      spoken = t < 0 ? "No team. Go it alone." : store.teams[t].name + ". " + store.teams[t].members.join(", ");
+    } else if (e.target.id === "catAll") { st.cats = PP.CATS.map(function (c) { return c.id; }); spoken = "All categories selected"; }
+    else if (e.target.id === "catNone") { st.cats = []; spoken = "Categories cleared"; }
+    else return;
+    save(); renderSetup(); say(spoken);
+  });
+
+  /* ---------- game ---------- */
+  let g = null, tick = null;
+
+  function startGame() {
+    const st = store.settings, cfg = DIFFS[st.diff];
+    g = {
+      diff: st.diff, cfg: cfg, cats: st.cats.slice(), level: 1, qn: 0, score: 0, streak: 0, best: 0, correct: 0, asked: 0,
+      hearts: LIVES, used: new Set(), marks: [], perfect: true,
+      team: st.team >= 0 ? store.teams[st.team].members.slice() : [], teamName: st.team >= 0 ? store.teams[st.team].name : "",
+      helped: {}, q: null, locked: false, running: false
+    };
+    show("game");
+    nextQuestion();
+  }
+  $("#startBtn").addEventListener("click", startGame);
+  $("#againBtn").addEventListener("click", startGame);
+
+  function chooseQuestion() {
+    const t = Math.min(1, (g.level - 1) / 5);
+    const mix = g.cfg.mix[0].map(function (v, i) { return v + (g.cfg.mix[1][i] - v) * t; });
+    const r = Math.random();
+    const d = r < mix[0] ? 1 : r < mix[0] + mix[1] ? 2 : 3;
+    const cat = g.cats[PP.rnd(g.cats.length)];
+    const order = [d].concat([1, 2, 3].filter(function (x) { return x !== d; }).sort(function (a, b) { return Math.abs(a - d) - Math.abs(b - d); }));
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < order.length; i++) {
+        const kinds = (index[cat] || {})[order[i]] || {};
+        const open = Object.keys(kinds).filter(function (k) { return kinds[k].some(function (q) { return !g.used.has(q.id); }); });
+        if (open.length) {
+          const list = kinds[open[PP.rnd(open.length)]].filter(function (q) { return !g.used.has(q.id); });
+          const q = list[PP.rnd(list.length)];
+          g.used.add(q.id);
+          return q;
+        }
+      }
+      // every question in this category has been asked: allow repeats
+      pool.forEach(function (q) { if (q.cat === cat) g.used.delete(q.id); });
+    }
+    return pool[PP.rnd(pool.length)];
+  }
+
+  function nextQuestion() {
+    if (g.qn === 0) { g.marks = []; g.perfect = true; g.helped = {}; }
+    const q = g.q = chooseQuestion();
+    g.locked = false;
+    g.running = false;
+    g.tips = {};
+    const order = PP.shuffle(q.opts);
+    $("#qCat").innerHTML = esc(CAT_BY_ID[q.cat].name) + '<span class="pts">' + "●".repeat(q.d) + "</span>";
+    $("#qText").textContent = q.q;
+    $("#opts").innerHTML = order.map(function (o) { return '<button class="opt" data-opt="' + esc(o) + '">' + optionHtml(o) + "</button>"; }).join("");
+    $("#bubble").classList.add("hidden");
+    $("#fact").classList.add("hidden");
+    $("#nextBtn").classList.add("hidden");
+    $("#teamWrap").classList.toggle("hidden", !g.team.length);
+    $("#s-game .scroll").scrollTop = 0;
+    renderHud(); renderTeamBar();
+    g.total = g.cfg.time * 1000;
+    clearInterval(tick);
+    $("#timerBar").style.transform = "scaleX(1)";
+    $("#timerBar").classList.remove("low");
+    // The clock starts once the question and its answers have been read out.
+    say(q.q + " … " + order.join(". … ") + ".", function () {
+      if (!g || g.q !== q || g.locked || g.running) return;
+      startClock();
+    });
+  }
+  function startClock() {
+    g.running = true;
+    g.tEnd = Date.now() + g.total;
+    clearInterval(tick);
+    tick = setInterval(onTick, 100);
+    onTick();
+  }
+
+  function onTick() {
+    const left = Math.max(0, g.tEnd - Date.now());
+    const bar = $("#timerBar");
+    bar.style.transform = "scaleX(" + (left / g.total) + ")";
+    bar.classList.toggle("low", left < 5000);
+    if (left <= 0) answer(null);
+  }
+
+  function renderHud() {
+    $("#hudLevel").textContent = g.level;
+    $("#hudScore").textContent = fmt(g.score);
+    $("#hudStreak").textContent = g.streak;
+    let h = "";
+    for (let i = 0; i < LIVES; i++) h += '<span class="' + (i < g.hearts ? "" : "off") + '">♥</span>';
+    $("#hudHearts").innerHTML = h;
+    $("#hudHearts").setAttribute("aria-label", g.hearts + " lives left");
+    let dots = "";
+    for (let i = 0; i < PER_LEVEL; i++) dots += '<i class="' + (g.marks[i] === true ? "ok" : g.marks[i] === false ? "no" : i === g.qn ? "now" : "") + '"></i>';
+    $("#qDots").innerHTML = dots;
+  }
+
+  function renderTeamBar() {
+    $("#teamBar").innerHTML = g.team.map(function (n) {
+      const off = g.helped[n] || g.locked;
+      return '<button data-help="' + esc(n) + '"' + (off ? " disabled" : "") + ' aria-label="Ask ' + esc(n) + '">' + token(n) + "<small>" + esc(n) + "</small></button>";
+    }).join("");
+    const left = g.team.filter(function (n) { return !g.helped[n]; }).length;
+    $("#teamLabel").textContent = left ? "Ask a teammate — " + left + " left this level" : "Your team has helped all it can this level";
+  }
+
+  // A teammate knows its own family for certain, its own types well, and guesses at the rest.
+  function askHelper(name) {
+    if (g.locked || g.helped[name]) return;
+    const m = PP.byName[name], q = g.q, fam = PP.family(name);
+    let p, line, conf;
+    const sharedType = (q.tags || []).filter(function (t) { return m.types.indexOf(t) >= 0; })[0];
+    if ((q.mons || []).some(function (x) { return fam.has(x); })) { p = 1; conf = "Certain"; line = "That's my own family — I know this one! It's <b>%s</b>"; }
+    else if (sharedType) { p = 0.85; conf = "Pretty sure"; line = sharedType + " type is my thing. I'm pretty sure it's <b>%s</b>"; }
+    else {
+      p = [0, 0.7, 0.55, 0.42][q.d] + (m.types.indexOf("Psychic") >= 0 ? 0.08 : 0);
+      if (p >= 0.65) { conf = "Fairly sure"; line = "Hmm… I think it's <b>%s</b>"; }
+      else { conf = "Just a guess"; line = "Not really my area… my best guess is <b>%s</b>"; }
+    }
+    const wrongs = q.opts.filter(function (o) { return o !== q.a; });
+    const pick = Math.random() < p ? q.a : wrongs[PP.rnd(wrongs.length)];
+    g.helped[name] = true;
+    (g.tips[pick] = g.tips[pick] || []).push(name);
+    $("#bubble").innerHTML = token(name, "lg") + "<div><span class=\"conf\">" + esc(name).toUpperCase() + " · " + conf.toUpperCase() + "</span>" + line.replace("%s", esc(pick)) +
+      '<span class="tys">' + m.types.map(typePic).join("") + "</span></div>";
+    $("#bubble").classList.remove("hidden");
+    $$("#opts .opt").forEach(function (b) {
+      const o = b.getAttribute("data-opt"), names = g.tips[o];
+      if (!names) return;
+      b.classList.add("tip");
+      b.innerHTML = optionHtml(o) + '<span class="who">▲ ' + esc(names.join(", ")) + (names.length > 1 ? " agree" : "'s pick") + "</span>";
+    });
+    renderTeamBar();
+    $("#bubble").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // Give a few seconds back for the hint; if the question was still being read, the clock starts after the hint instead.
+    if (g.running) g.tEnd = Math.min(Date.now() + g.total, g.tEnd + (store.settings.voice ? 7000 : 4000));
+    say(name + " says: " + line.replace("%s", pick), function () {
+      if (g && g.q === q && !g.locked && !g.running) startClock();
+    });
+  }
+  $("#teamBar").addEventListener("click", function (e) {
+    const b = e.target.closest("[data-help]");
+    if (b) askHelper(b.getAttribute("data-help"));
+  });
+
+  $("#opts").addEventListener("click", function (e) {
+    const b = e.target.closest(".opt");
+    if (b && !g.locked) answer(b.getAttribute("data-opt"));
+  });
+
+  function answer(choice) {
+    if (g.locked) return;
+    g.locked = true;
+    clearInterval(tick);
+    const q = g.q, left = g.running ? Math.max(0, g.tEnd - Date.now()) : g.total, right = choice === q.a;
+    g.asked++;
+    let msg, spoken;
+    if (right) {
+      g.streak++; g.correct++; g.best = Math.max(g.best, g.streak);
+      const pts = Math.round((100 * q.d + 60 * (left / g.total) + Math.min(g.streak - 1, 5) * 20) * g.cfg.mult);
+      g.score += pts;
+      msg = '<b class="g">Correct! +' + fmt(pts) + "</b>" + (g.streak >= 3 ? " · " + g.streak + " in a row" : "");
+      spoken = "Correct! " + pts + " points." + (g.streak >= 3 ? " " + g.streak + " in a row." : "");
+    } else {
+      g.streak = 0; g.hearts--; g.perfect = false;
+      msg = '<b class="r">' + (choice === null ? "Out of time!" : "Not quite.") + "</b> The answer is <b>" + esc(q.a) + "</b>.";
+      spoken = (choice === null ? "Out of time! " : "Not quite. ") + "The answer is " + q.a + ".";
+    }
+    g.marks[g.qn] = right;
+    $$("#opts .opt").forEach(function (b) {
+      const o = b.getAttribute("data-opt");
+      b.disabled = true;
+      if (o === q.a) b.classList.add("right");
+      else if (o === choice) b.classList.add("wrong");
+      else b.classList.add("dim");
+    });
+    $("#fact").innerHTML = msg + (q.fact ? "<br>" + esc(q.fact) : "");
+    $("#fact").classList.remove("hidden");
+    $("#bubble").classList.add("hidden");
+    $("#teamWrap").classList.add("hidden");
+    const nb = $("#nextBtn");
+    nb.textContent = g.hearts <= 0 ? "See results" : g.qn === PER_LEVEL - 1 ? "Finish level" : "Next";
+    nb.classList.remove("hidden");
+    renderHud();
+    $("#fact").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    say(spoken + (q.fact ? " " + q.fact : ""));
+  }
+
+  $("#nextBtn").addEventListener("click", function () {
+    if (g.hearts <= 0) return endGame();
+    g.qn++;
+    if (g.qn >= PER_LEVEL) return levelClear();
+    nextQuestion();
+  });
+
+  function levelClear() {
+    const bonus = Math.round((150 * g.level + (g.perfect ? 250 : 0)) * g.cfg.mult);
+    g.score += bonus;
+    const healed = g.hearts < LIVES;
+    if (healed) g.hearts++;
+    $("#lvTitle").textContent = (g.perfect ? "Perfect! " : "") + "Level " + g.level + " cleared";
+    $("#lvBonus").textContent = "+" + fmt(bonus);
+    $("#lvText").textContent = (healed ? "You won back a life. " : "") + (g.team.length ? "Your team is rested and ready to help again. " : "") + "Level " + (g.level + 1) + " will be tougher.";
+    $("#overlay").classList.remove("hidden");
+    renderHud();
+    say($("#lvTitle").textContent + ". Bonus " + bonus + " points. " + $("#lvText").textContent);
+  }
+  $("#lvNext").addEventListener("click", function () {
+    $("#overlay").classList.add("hidden");
+    g.level++; g.qn = 0;
+    nextQuestion();
+  });
+
+  $("#quitBtn").addEventListener("click", function () {
+    hush();
+    if (window.confirm("End this game now? Your score so far will still count.")) { clearInterval(tick); g.locked = true; endGame(); }
+  });
+
+  function endGame() {
+    clearInterval(tick);
+    const list = store.scores[g.diff];
+    const qualifies = g.score > 0 && (list.length < 10 || g.score > list[list.length - 1].score);
+    $("#overEyebrow").textContent = qualifies ? "New high score!" : "Game over";
+    $("#overScore").textContent = fmt(g.score);
+    $("#overSub").textContent = g.cfg.label + " · reached level " + g.level;
+    $("#overStats").innerHTML = "<div><b>" + g.correct + "/" + g.asked + "</b><span>Correct</span></div><div><b>" + g.best + "</b><span>Best streak</span></div><div><b>" + g.level + "</b><span>Level</span></div>";
+    $("#nameRow").classList.toggle("hidden", !qualifies);
+    $("#nameInput").value = store.settings.name || "";
+    const msg = $("#savedMsg");
+    msg.classList.toggle("hidden", qualifies);
+    msg.textContent = qualifies ? "" : list.length >= 10 ? "Score to beat for the top ten: " + fmt(list[list.length - 1].score) : "Answer at least one question to post a score.";
+    show("over");
+    say((qualifies ? "New high score! " : "Game over. ") + "You scored " + g.score + " points on " + g.cfg.label + " and reached level " + g.level + ". You got " + g.correct + " out of " + g.asked + " correct." +
+      (qualifies ? " Type your name to save your score." : ""));
+  }
+  $("#saveScore").addEventListener("click", function () {
+    const name = ($("#nameInput").value || "").trim().slice(0, 12) || "Trainer";
+    store.settings.name = name;
+    const list = store.scores[g.diff];
+    const entry = { name: name, score: g.score, level: g.level, team: g.teamName, date: new Date().toISOString().slice(0, 10) };
+    list.push(entry);
+    list.sort(function (a, b) { return b.score - a.score; });
+    list.length = Math.min(list.length, 10);
+    save();
+    $("#nameRow").classList.add("hidden");
+    $("#savedMsg").textContent = "Saved — you're #" + (list.indexOf(entry) + 1) + " on " + g.cfg.label + ".";
+    $("#savedMsg").classList.remove("hidden");
+    say("Saved. You're number " + (list.indexOf(entry) + 1) + " on " + g.cfg.label + ".");
+  });
+
+  /* ---------- high scores ---------- */
+  function renderScores(diff) {
+    $("#scoreTabs").innerHTML = Object.keys(DIFFS).map(function (k) { return '<button data-tab="' + k + '" class="' + (k === diff ? "on" : "") + '">' + DIFFS[k].label + "</button>"; }).join("");
+    const list = store.scores[diff];
+    $("#scoreList").innerHTML = list.length ? list.map(function (s, i) {
+      return '<li><span class="rank">' + (i + 1) + '</span><span class="who"><b>' + esc(s.name) + "</b><small>Level " + s.level + (s.team ? " · " + esc(s.team) : "") + " · " + esc(s.date) + '</small></span><span class="pts">' + fmt(s.score) + "</span></li>";
+    }).join("") : '<li class="nothing">No ' + DIFFS[diff].label + " scores yet. Be the first.</li>";
+    say("High scores, " + DIFFS[diff].label + ". " + (list.length ? list.map(function (s, i) { return "Number " + (i + 1) + ", " + s.name + ", " + s.score + " points"; }).join(". ") : "No scores yet. Be the first."));
+  }
+  $("#scoreTabs").addEventListener("click", function (e) {
+    const b = e.target.closest("[data-tab]");
+    if (b) renderScores(b.getAttribute("data-tab"));
+  });
+
+  /* ---------- teams ---------- */
+  function renderTeams() {
+    $("#teamCards").innerHTML = store.teams.map(function (t, i) {
+      let cells = "";
+      for (let k = 0; k < TEAM_MAX; k++) {
+        const n = t.members[k];
+        cells += '<div class="member">' + (n ? token(n) + "<small>" + esc(n) + "</small>" : '<div class="empty"></div>') + "</div>";
+      }
+      return '<div class="tcard"><div class="tcard-head"><b>' + esc(t.name) + '</b><button class="btn primary small" data-edit="' + i + '">' + (t.members.length ? "Edit" : "Build") + '</button></div><div class="members">' + cells + "</div></div>";
+    }).join("");
+  }
+  $("#teamCards").addEventListener("click", function (e) {
+    const b = e.target.closest("[data-edit]");
+    if (b) openEditor(+b.getAttribute("data-edit"), "teams");
+  });
+
+  let draft = null;
+  function openEditor(i, backTo) {
+    draft = { i: i, backTo: backTo, name: store.teams[i].name, members: store.teams[i].members.slice(), type: "" };
+    $("#teamName").value = draft.name;
+    $("#search").value = "";
+    show("edit");
+    renderTypeRow(); renderSlots(); renderGrid();
+  }
+  function renderTypeRow() {
+    $("#typeRow").innerHTML = '<button class="all' + (draft.type ? "" : " on") + '" data-type="">All</button>' + D.TYPES.map(function (t) {
+      return '<button class="' + (draft.type === t ? "on" : "") + '" data-type="' + t + '" aria-label="' + t + '">' + typePic(t) + "</button>";
+    }).join("");
+  }
+  function renderSlots() {
+    let h = "";
+    for (let k = 0; k < TEAM_MAX; k++) {
+      const n = draft.members[k];
+      h += n ? '<button data-rm="' + esc(n) + '" aria-label="Remove ' + esc(n) + '">' + token(n) + "</button>" : '<div class="empty"></div>';
+    }
+    $("#slots").innerHTML = h;
+  }
+  function renderGrid() {
+    const s = $("#search").value.trim().toLowerCase(), t = draft.type;
+    $("#monGrid").innerHTML = D.MONS.filter(function (m) {
+      return (!s || m.name.toLowerCase().indexOf(s) >= 0) && (!t || m.types.indexOf(t) >= 0);
+    }).map(function (m) {
+      const on = draft.members.indexOf(m.name) >= 0;
+      return '<button class="mon' + (on ? " on" : "") + '" data-mon="' + esc(m.name) + '" aria-pressed="' + on + '" title="' + esc(m.types.join(" / ")) + '">' + token(m.name, "lg") + "<small>" + esc(m.name) + "</small></button>";
+    }).join("") || '<p class="hint">No Pokémon match that search.</p>';
+  }
+  function toggleMember(name) {
+    const i = draft.members.indexOf(name);
+    if (i >= 0) { draft.members.splice(i, 1); say(name + " removed"); }
+    else if (draft.members.length < TEAM_MAX) { draft.members.push(name); say(name + ". " + PP.byName[name].types.join(" and ") + " type."); }
+    else { say("Your team is full. Tap a teammate at the top to remove it."); return; }
+    renderSlots();
+    $$("#monGrid .mon").forEach(function (b) {
+      const on = draft.members.indexOf(b.getAttribute("data-mon")) >= 0;
+      b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+    });
+  }
+  $("#monGrid").addEventListener("click", function (e) { const b = e.target.closest("[data-mon]"); if (b) toggleMember(b.getAttribute("data-mon")); });
+  $("#slots").addEventListener("click", function (e) { const b = e.target.closest("[data-rm]"); if (b) toggleMember(b.getAttribute("data-rm")); });
+  $("#typeRow").addEventListener("click", function (e) {
+    const b = e.target.closest("[data-type]");
+    if (!b) return;
+    draft.type = b.getAttribute("data-type");
+    $$("#typeRow button").forEach(function (x) { x.classList.toggle("on", x === b); });
+    renderGrid();
+    say(draft.type ? draft.type + " type" : "All types");
+  });
+  $("#search").addEventListener("input", renderGrid);
+  $("#editBack").addEventListener("click", function () { show(draft.backTo); });
+  $("#editSave").addEventListener("click", function () {
+    store.teams[draft.i] = { name: $("#teamName").value.trim().slice(0, 16) || "Team " + (draft.i + 1), members: draft.members.slice() };
+    if (draft.backTo === "setup" && draft.members.length) store.settings.team = draft.i;
+    save();
+    show(draft.backTo);
+  });
+
+  applyTheme(); applyVoice();
+  window.addEventListener("pagehide", hush);
+
+  /* ---------- offline support ---------- */
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+})();
+</script>
+</body>
+</html>
